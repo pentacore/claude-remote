@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-cap test-stack
+.PHONY: test test-unit test-cap test-stack lint-ci
 
 test: test-unit
 
@@ -11,3 +11,6 @@ test-cap:
 
 test-stack:
 	tests/integration/stack.sh
+
+lint-ci:
+	docker run --rm -v "$(CURDIR):/repo" -w /repo rhysd/actionlint:latest -color
