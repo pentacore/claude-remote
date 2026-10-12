@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Seeds user-scope MCP servers and plugins once. Each applied item is recorded in a stamp file, so
+# anything the user later removes stays removed; failed items are retried on the next start.
+set -uo pipefail
+[[ ${CLAUDE_SEED:-true} == true ]] || exit 0
+claude=${CLAUDE_BIN:-$HOME/.local/bin/claude}
+stamp=${CLAUDE_SEED_STAMP:-$HOME/.config/claude-remote/seeded}
+log() { printf '%s seed: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"; }
+[[ -x $claude ]] || { log "claude not installed yet; skipping"; exit 0; }
+mkdir -p "$(dirname "$stamp")"
+touch "$stamp"
+
+seed() { # seed <id> <command...>
+  local id=$1
+  shift
+  grep -qxF "$id" "$stamp" && return 0
+  if "$@" >/dev/null 2>&1; then
+    echo "$id" >> "$stamp"
+    log "seeded $id"
+  else
+    log "failed to seed $id (will retry next start)"
+  fi
+}
+
+ensure_marketplace() {
+  "$claude" plugin marketplace list 2>/dev/null | grep -q 'claude-plugins-official' ||
+    "$claude" plugin marketplace add anthropics/claude-plugins-official
+}
+
+context7=(mcp add --scope user --transport http)
+[[ -n ${CONTEXT7_API_KEY:-} ]] && context7+=(--header "CONTEXT7_API_KEY: $CONTEXT7_API_KEY")
+context7+=(context7 https://mcp.context7.com/mcp)
+
+seed mcp:playwright "$claude" mcp add --scope user playwright -- \
+  mcp-server-playwright --headless --browser chromium --no-sandbox --isolated
+seed mcp:context7 "$claude" "${context7[@]}"
+seed marketplace:claude-plugins-official ensure_marketplace
+seed plugin:superpowers "$claude" plugin install -s user superpowers@claude-plugins-official
+seed plugin:mattpocock-skills "$claude" plugin install -s user mattpocock-skills@claude-plugins-official
+exit 0
