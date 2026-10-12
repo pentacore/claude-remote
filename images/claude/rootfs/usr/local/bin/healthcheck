@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Healthy = logged in to claude.ai and the remote-control process is running.
+CLAUDE_BIN=${CLAUDE_BIN:-$HOME/.local/bin/claude}
+PGREP=${PGREP:-pgrep}
+if ! "$CLAUDE_BIN" auth status >/dev/null 2>&1; then
+  echo "unhealthy: not logged in to claude.ai (run: claude auth login)"
+  exit 1
+fi
+if ! "$PGREP" -f 'remote-control' >/dev/null 2>&1; then
+  echo "unhealthy: claude remote-control is not running"
+  exit 1
+fi
+echo healthy

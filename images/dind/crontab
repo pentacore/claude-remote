@@ -1,0 +1,3 @@
+*/10 * * * * /usr/local/bin/janitor.sh sweep >/proc/1/fd/1 2>&1
+7 * * * * /usr/local/bin/janitor.sh prune-light >/proc/1/fd/1 2>&1
+0 4 * * * /usr/local/bin/janitor.sh prune-full >/proc/1/fd/1 2>&1

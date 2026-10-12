@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Validates PERMISSION_MODE, writes it as defaultMode into the managed settings, prints the effective mode.
+set -euo pipefail
+settings=${1:-/etc/claude-code/managed-settings.json}
+mode=${PERMISSION_MODE:-auto}
+case $mode in
+  default | acceptEdits | plan | auto | dontAsk | bypassPermissions) ;;
+  *)
+    echo "apply-permission-mode: invalid PERMISSION_MODE '$mode'; using 'default'" >&2
+    mode=default
+    ;;
+esac
+tmp=$(mktemp)
+jq --arg m "$mode" '.permissions.defaultMode = $m' "$settings" > "$tmp"
+cat "$tmp" > "$settings"
+rm -f "$tmp"
+printf '%s\n' "$mode"

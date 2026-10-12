@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Test double for the docker CLI: records every call, optionally answers from a respond script.
+printf '%s\n' "$*" >> "${FAKE_DOCKER_LOG:?FAKE_DOCKER_LOG not set}"
+if [[ -n ${FAKE_DOCKER_RESPOND:-} && -f $FAKE_DOCKER_RESPOND ]]; then
+  . "$FAKE_DOCKER_RESPOND"
+fi
+exit 0

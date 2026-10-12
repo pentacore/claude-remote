@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Keeps Claude Code installed, the remote-control tmux session alive, and runs maintenance daily.
+set -uo pipefail
+log() { printf '%s supervisor: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"; }
+
+ensure_claude() {
+  [[ -x $HOME/.local/bin/claude ]] && return 0
+  log "installing Claude Code"
+  curl -fsSL https://claude.ai/install.sh | bash || { log "install failed; retrying in a minute"; return 1; }
+}
+
+/usr/local/bin/maintenance || log "maintenance failed"
+last_maint=$(date +%F)
+while true; do
+  if ensure_claude; then
+    if [[ -z ${seeded:-} ]]; then
+      /usr/local/bin/seed-claude
+      seeded=1
+    fi
+    if ! tmux has-session -t rc 2>/dev/null; then
+      log "starting remote-control in tmux session 'rc'"
+      tmux new-session -d -s rc -c /workspace /usr/local/bin/rc-loop
+    fi
+  fi
+  if [[ $(date +%H) == 04 && $(date +%F) != "$last_maint" ]]; then
+    /usr/local/bin/maintenance || log "maintenance failed"
+    last_maint=$(date +%F)
+  fi
+  sleep 60
+done

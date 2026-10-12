@@ -1,0 +1,77 @@
+name: claude-remote
+
+services:
+  dind:
+    image: ${IMAGE_REGISTRY:-ghcr.io/pentacore}/claude-remote-dind:${IMAGE_TAG:-latest}
+    hostname: dind
+    privileged: true
+    restart: unless-stopped
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+      DOCKER_TLS_SAN: DNS:dind
+      TZ: ${TZ:-Europe/Stockholm}
+      DIND_SIZE_GB: ${DIND_SIZE_GB:-100}
+      JANITOR_IDLE_MIN: ${JANITOR_IDLE_MIN:-120}
+      JANITOR_MAX_AGE_MIN: ${JANITOR_MAX_AGE_MIN:-1440}
+      JANITOR_UNTAGGED_MAX_AGE_MIN: ${JANITOR_UNTAGGED_MAX_AGE_MIN:-60}
+      JANITOR_MARKER_MAX_AGE_MIN: ${JANITOR_MARKER_MAX_AGE_MIN:-10080}
+      JANITOR_SOFT_PCT: ${JANITOR_SOFT_PCT:-75}
+      JANITOR_HARD_PCT: ${JANITOR_HARD_PCT:-90}
+    volumes:
+      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/dind:/dind
+      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/workspace:/workspace
+      - certs:/certs
+    ports:
+      - "${PORT_RANGE:-18000-18099}:${PORT_RANGE:-18000-18099}"
+    cpus: ${DIND_CPUS:-6}
+    mem_limit: ${DIND_MEM:-14g}
+    healthcheck:
+      test: ["CMD", "docker", "-H", "unix:///var/run/docker.sock", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    logging:
+      options: { max-size: 20m, max-file: "3" }
+
+  claude:
+    image: ${IMAGE_REGISTRY:-ghcr.io/pentacore}/claude-remote-claude:${IMAGE_TAG:-latest}
+    hostname: claude
+    init: true
+    restart: unless-stopped
+    depends_on:
+      dind:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Europe/Stockholm}
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      GITLAB_HOST: ${GITLAB_HOST:-gitlab.com}
+      GIT_TOKENS: ${GIT_TOKENS:-}
+      GIT_NAME: ${GIT_NAME:-}
+      GIT_EMAIL: ${GIT_EMAIL:-}
+      GIT_IDENTITIES: ${GIT_IDENTITIES:-}
+      PERMISSION_MODE: ${PERMISSION_MODE:-auto}
+      RC_NAME: ${RC_NAME:-Babel}
+      RC_CAPACITY: ${RC_CAPACITY:-3}
+      RC_SPAWN: ${RC_SPAWN:-}
+      ENABLE_SSH: ${ENABLE_SSH:-false}
+      SSH_AUTHORIZED_KEYS: ${SSH_AUTHORIZED_KEYS:-}
+      SSH_AUTHORIZED_KEYS_URL: ${SSH_AUTHORIZED_KEYS_URL:-}
+      CACHE_MAX_GB: ${CACHE_MAX_GB:-20}
+      IDE_KEEP_VERSIONS: ${IDE_KEEP_VERSIONS:-2}
+      CLAUDE_SEED: ${CLAUDE_SEED:-true}
+      CONTEXT7_API_KEY: ${CONTEXT7_API_KEY:-}
+    volumes:
+      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/home:/home/claude
+      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/workspace:/workspace
+      - certs:/certs:ro
+    ports:
+      - "${SSH_PORT:-2222}:2222"
+    cpus: ${CLAUDE_CPUS:-4}
+    mem_limit: ${CLAUDE_MEM:-12g}
+    logging:
+      options: { max-size: 20m, max-file: "3" }
+
+volumes:
+  certs:

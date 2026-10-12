@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Prints authorized_keys from SSH_AUTHORIZED_KEYS (';' or newline separated) and
+# SSH_AUTHORIZED_KEYS_URL (space or ';' separated URLs, e.g. https://github.com/<user>.keys).
+set -uo pipefail
+emit() {
+  local k
+  while IFS= read -r k; do
+    k=${k#"${k%%[![:space:]]*}"}
+    k=${k%"${k##*[![:space:]]}"}
+    [[ -z $k || $k == \#* ]] && continue
+    printf '%s\n' "$k"
+  done
+}
+{
+  tr ';' '\n' <<<"${SSH_AUTHORIZED_KEYS:-}" | emit
+  for url in $(tr ';' ' ' <<<"${SSH_AUTHORIZED_KEYS_URL:-}"); do
+    if keys=$(curl -fsSL --max-time 15 "$url"); then
+      emit <<<"$keys"
+    else
+      echo "render-authorized-keys: could not fetch $url" >&2
+    fi
+  done
+} | awk '!seen[$0]++'

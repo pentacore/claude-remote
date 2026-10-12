@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# gh wrapper: sets GH_TOKEN for the target repo (-R, `repo clone|view|fork <repo>`, or origin).
+. "${CLAUDE_REMOTE_LIB:-/usr/local/lib/claude-remote}/tokens.sh"
+REAL=${GH_REAL:-/usr/bin/gh}
+args=("$@")
+repo="" host="" path=""
+for ((k = 0; k < ${#args[@]}; k++)); do
+  case ${args[k]} in
+    -R | --repo) repo=${args[k + 1]:-} ;;
+    --repo=*) repo=${args[k]#*=} ;;
+  esac
+done
+if [[ -z $repo && ${args[0]:-} == repo && ${args[1]:-} =~ ^(clone|view|fork)$ ]]; then
+  repo=${args[2]:-}
+fi
+if [[ $repo == *://* || $repo == *@*:* ]]; then
+  read -r host path <<<"$(parse_remote "$repo")"
+elif [[ $repo == */*/* ]]; then
+  host=${repo%%/*} path=${repo#*/}
+elif [[ -n $repo ]]; then
+  host=github.com path=$repo
+else
+  read -r host path <<<"$(parse_remote "$(git remote get-url origin 2>/dev/null)")"
+fi
+host=${host:-github.com}
+# Only ever hand gh a token meant for GitHub (or the GitHub Enterprise host in GH_HOST).
+if [[ $host == github.com || (-n ${GH_HOST:-} && $host == "$GH_HOST") ]]; then
+  tok=$(token_for "$host" "$path")
+  [[ -n $tok ]] && export GH_TOKEN=$tok
+fi
+exec "$REAL" "$@"

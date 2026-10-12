@@ -1,0 +1,24 @@
+services:
+  dind:
+    environment:
+      DIND_SIZE_GB: "4"
+    volumes:
+      - test-dind:/dind
+      - test-workspace:/workspace
+    ports: !reset []
+  claude:
+    environment:
+      GIT_NAME: Test Fallback
+      GIT_EMAIL: fallback@example.com
+      GIT_IDENTITIES: github.com/acme=Work Person <work@example.com>
+      PERMISSION_MODE: bogus
+      ENABLE_SSH: "true"
+      SSH_AUTHORIZED_KEYS: ${SSH_TEST_PUBKEY:?set by stack.sh}
+    volumes:
+      - test-home:/home/claude
+      - test-workspace:/workspace
+    ports: !reset []
+volumes:
+  test-dind:
+  test-workspace:
+  test-home:
