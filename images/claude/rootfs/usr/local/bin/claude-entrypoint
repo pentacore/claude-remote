@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Root phase: prepare dirs, docker certs and optional sshd, then run the supervisor as claude.
+set -euo pipefail
+H=/home/claude
+
+install -d -o 99 -g 100 "$H" /workspace /workspace/repos /workspace/wt \
+  /workspace/.claude-remote /workspace/.claude-remote/sessions /workspace/.claude-remote/logs
+
+# dind's client certs are root-only on the shared volume; give claude a private copy
+install -d -o 99 -g 100 -m 0700 /run/claude-remote/certs
+for f in ca.pem cert.pem key.pem; do
+  install -o 99 -g 100 -m 0600 "/certs/client/$f" "/run/claude-remote/certs/$f"
+done
+
+# Commit identities (git config) and the validated permission mode for all Claude sessions
+/usr/local/bin/render-git-identities /etc/claude-remote/git
+PERMISSION_MODE=$(/usr/local/bin/apply-permission-mode /etc/claude-code/managed-settings.json | tail -n 1)
+export PERMISSION_MODE
+echo "entrypoint: permission mode $PERMISSION_MODE"
+
+if [[ ${ENABLE_SSH:-false} == true ]]; then
+  install -d -o 99 -g 100 -m 0700 "$H/.ssh" "$H/.ssh-host"
+  key=$H/.ssh-host/ssh_host_ed25519_key
+  [[ -f $key ]] || ssh-keygen -q -t ed25519 -N '' -f "$key"
+  chown root:root "$key" "$key.pub"
+  chmod 0600 "$key"
+  install -d -m 0755 /etc/ssh/authorized_keys
+  /usr/local/bin/render-authorized-keys > /etc/ssh/authorized_keys/claude
+  echo "entrypoint: $(grep -c . /etc/ssh/authorized_keys/claude) SSH key(s) authorized"
+  chmod 0644 /etc/ssh/authorized_keys/claude
+  # sshd does not inherit the container env; give SSH/IDE sessions the same tooling env as Claude
+  : > "$H/.ssh/environment"
+  for v in PATH CARGO_HOME RUSTUP_HOME DOCKER_HOST DOCKER_TLS_VERIFY DOCKER_CERT_PATH GH_TOKEN GITLAB_TOKEN \
+           GITLAB_HOST GIT_TOKENS PERMISSION_MODE PLAYWRIGHT_BROWSERS_PATH TZ LANG; do
+    [[ -n ${!v:-} ]] && printf '%s=%s\n' "$v" "${!v}" >> "$H/.ssh/environment"
+  done
+  chown 99:100 "$H/.ssh/environment"
+  chmod 0600 "$H/.ssh/environment"
+  mkdir -p /run/sshd
+  /usr/sbin/sshd -f /etc/ssh/claude-remote_sshd_config
+  echo "entrypoint: sshd listening on 2222"
+fi
+
+exec runuser -u claude -- env HOME="$H" USER=claude LOGNAME=claude SHELL=/bin/bash /usr/local/bin/supervisor
