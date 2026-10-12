@@ -4,7 +4,7 @@ FROM golang:trixie AS go
 RUN v=$(go list -m -f '{{.Version}}' gitlab.com/gitlab-org/cli@latest) \
  && go install -ldflags "-X main.version=${v#v}" "gitlab.com/gitlab-org/cli/cmd/glab@$v"
 FROM composer:2 AS composer
-FROM node:24-trixie-slim AS node
+FROM node:26-trixie-slim AS node
 FROM oven/bun:1-debian AS bun
 FROM ghcr.io/astral-sh/uv:latest AS uv
 FROM mikefarah/yq:4 AS yq
