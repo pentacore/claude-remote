@@ -13,9 +13,6 @@ on:
 permissions:
   contents: read
 
-env:
-  DOCKER_MAJOR: "29"
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -55,7 +52,6 @@ jobs:
         with:
           context: images/${{ matrix.image }}
           platforms: linux/amd64
-          build-args: DOCKER_MAJOR=${{ env.DOCKER_MAJOR }}
           pull: true
           no-cache: ${{ github.event_name == 'schedule' }}
           push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}

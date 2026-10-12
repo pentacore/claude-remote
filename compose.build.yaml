@@ -3,12 +3,8 @@ services:
   dind:
     build:
       context: ./images/dind
-      args:
-        DOCKER_MAJOR: ${DOCKER_MAJOR:-29}
     image: claude-remote-dind:local
   claude:
     build:
       context: ./images/claude
-      args:
-        DOCKER_MAJOR: ${DOCKER_MAJOR:-29}
     image: claude-remote-claude:local

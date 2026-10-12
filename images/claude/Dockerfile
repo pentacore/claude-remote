@@ -1,5 +1,4 @@
-ARG DOCKER_MAJOR=29
-FROM docker:${DOCKER_MAJOR}-cli AS dockercli
+FROM docker:29-cli AS dockercli
 FROM golang:bookworm AS go
 # Stamp the release version (plain `go install` reports "DEV")
 RUN v=$(go list -m -f '{{.Version}}' gitlab.com/gitlab-org/cli@latest) \

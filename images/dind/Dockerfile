@@ -1,5 +1,4 @@
-ARG DOCKER_MAJOR=29
-FROM docker:${DOCKER_MAJOR}-dind
+FROM docker:29-dind
 RUN apk add --no-cache e2fsprogs e2fsprogs-extra jq curl tzdata
 COPY entrypoint.sh /usr/local/bin/dind-entrypoint.sh
 COPY janitor.sh /usr/local/bin/janitor.sh
