@@ -1,36 +1,31 @@
 version: 2
 updates:
-  # Workflow actions (pinned by SHA)
+  # Workflow actions (pinned by SHA): one grouped PR per week
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     commit-message:
       prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
 
   # Base images: tags float within a version (the weekly no-cache build picks up patches);
-  # Dependabot proposes new versions, e.g. docker 29 -> 30 or composer 2 -> 3.
+  # Dependabot proposes new versions, e.g. docker 29 -> 30 or composer 2 -> 3, in one grouped PR.
   - package-ecosystem: docker
-    directory: /images/claude
+    directories:
+      - /images/claude
+      - /images/dind
+      - /tests
     schedule:
       interval: weekly
     commit-message:
       prefix: deps
+    groups:
+      base-images:
+        patterns: ["*"]
     ignore:
       # only even Node majors become LTS
       - dependency-name: node
         versions: ["25.x", "27.x", "29.x", "31.x"]
-
-  - package-ecosystem: docker
-    directory: /images/dind
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: deps
-
-  - package-ecosystem: docker
-    directory: /tests
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: deps
