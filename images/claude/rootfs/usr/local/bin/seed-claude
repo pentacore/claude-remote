@@ -32,7 +32,7 @@ context7=(mcp add --scope user --transport http)
 context7+=(context7 https://mcp.context7.com/mcp)
 
 seed mcp:playwright "$claude" mcp add --scope user playwright -- \
-  mcp-server-playwright --headless --browser chromium --no-sandbox --isolated
+  playwright-mcp --headless --browser chromium --no-sandbox --isolated
 seed mcp:context7 "$claude" "${context7[@]}"
 seed marketplace:claude-plugins-official ensure_marketplace
 seed plugin:superpowers "$claude" plugin install -s user superpowers@claude-plugins-official

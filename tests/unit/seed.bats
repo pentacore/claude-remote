@@ -20,7 +20,7 @@ called() { grep -Fxq -- "$1" "$CLAUDE_LOG"; }
 
 @test "first run seeds MCP servers, marketplace and plugins at user scope" {
   seed
-  called "mcp add --scope user playwright -- mcp-server-playwright --headless --browser chromium --no-sandbox --isolated"
+  called "mcp add --scope user playwright -- playwright-mcp --headless --browser chromium --no-sandbox --isolated"
   called "mcp add --scope user --transport http context7 https://mcp.context7.com/mcp"
   called "plugin marketplace add anthropics/claude-plugins-official"
   called "plugin install -s user superpowers@claude-plugins-official"
