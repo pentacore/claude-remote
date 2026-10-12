@@ -1,0 +1,11 @@
+[credential]
+	helper = /usr/local/bin/git-credential-env
+	useHttpPath = true
+[include]
+	path = /etc/claude-remote/git/identities.gitconfig
+[init]
+	defaultBranch = main
+[push]
+	autoSetupRemote = true
+[safe]
+	directory = *

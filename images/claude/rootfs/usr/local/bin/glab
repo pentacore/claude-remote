@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# glab wrapper: sets GITLAB_HOST and GITLAB_TOKEN for the target repo (-R, `repo clone <repo>`, or origin).
+. "${CLAUDE_REMOTE_LIB:-/usr/local/lib/claude-remote}/tokens.sh"
+REAL=${GLAB_REAL:-/usr/libexec/glab-real/glab}
+args=("$@")
+repo="" host="" path=""
+for ((k = 0; k < ${#args[@]}; k++)); do
+  case ${args[k]} in
+    -R | --repo) repo=${args[k + 1]:-} ;;
+    --repo=*) repo=${args[k]#*=} ;;
+  esac
+done
+if [[ -z $repo && ${args[0]:-} == repo && ${args[1]:-} == clone ]]; then
+  repo=${args[2]:-}
+fi
+default_host=$(normalize_host "${GITLAB_HOST:-gitlab.com}")
+if [[ $repo == *://* || $repo == *@*:* ]]; then
+  read -r host path <<<"$(parse_remote "$repo")"
+elif [[ -n $repo ]]; then
+  host=$default_host path=$repo
+else
+  read -r host path <<<"$(parse_remote "$(git remote get-url origin 2>/dev/null)")"
+fi
+host=${host:-$default_host}
+tok=$(token_for "$host" "$path")
+export GITLAB_HOST=$host
+[[ -n $tok ]] && export GITLAB_TOKEN=$tok
+exec "$REAL" "$@"
