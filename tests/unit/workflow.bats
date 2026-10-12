@@ -16,3 +16,8 @@ setup() { load helpers/common; F="$ROOT/.github/workflows/images.yml"; }
     grep -qE "^\s+directory: $dir\s*$" "$D"
   done
 }
+@test "images are based on Debian trixie (13), not bookworm" {
+  run grep -n bookworm "$ROOT/images/claude/Dockerfile"
+  [ "$status" -eq 1 ]
+  grep -q '^FROM debian:trixie-slim' "$ROOT/images/claude/Dockerfile"
+}
