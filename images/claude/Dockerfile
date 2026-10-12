@@ -1,16 +1,15 @@
-ARG DOCKER_MAJOR=29
-FROM docker:${DOCKER_MAJOR}-cli AS dockercli
-FROM golang:bookworm AS go
+FROM docker:29-cli AS dockercli
+FROM golang:trixie AS go
 # Stamp the release version (plain `go install` reports "DEV")
 RUN v=$(go list -m -f '{{.Version}}' gitlab.com/gitlab-org/cli@latest) \
  && go install -ldflags "-X main.version=${v#v}" "gitlab.com/gitlab-org/cli/cmd/glab@$v"
 FROM composer:2 AS composer
-FROM node:24-bookworm-slim AS node
+FROM node:24-trixie-slim AS node
 FROM oven/bun:1-debian AS bun
 FROM ghcr.io/astral-sh/uv:latest AS uv
 FROM mikefarah/yq:4 AS yq
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 TZ=Europe/Stockholm
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl wget gnupg git jq tmux openssh-server sudo procps less vim-tiny \
