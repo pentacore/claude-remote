@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Renders commit identities as git config: GIT_NAME/GIT_EMAIL as the default, plus one includeIf per
+# GIT_IDENTITIES entry ("host[/path]=Name <email>", ';'-separated), most specific prefix last so it wins.
+set -euo pipefail
+out=${1:?usage: render-git-identities <dir>}
+mkdir -p "$out"
+rm -f "$out"/id-*.gitconfig
+main=$out/identities.gitconfig
+
+trim() { local s=$1; s=${s#"${s%%[![:space:]]*}"}; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+quote() { local s=${1//\\/\\\\}; printf '"%s"' "${s//\"/\\\"}"; }
+user_block() { # user_block <name> <email>
+  echo "[user]"
+  if [[ -n $1 ]]; then printf '\tname = %s\n' "$(quote "$1")"; fi
+  if [[ -n $2 ]]; then printf '\temail = %s\n' "$(quote "$2")"; fi
+}
+
+: > "$main"
+if [[ -n ${GIT_NAME:-}${GIT_EMAIL:-} ]]; then
+  user_block "${GIT_NAME:-}" "${GIT_EMAIL:-}" > "$main"
+fi
+
+re='^([^=]+)=(.*[^[:space:]])[[:space:]]*<([^<>]+)>$'
+tr ';' '\n' <<<"${GIT_IDENTITIES:-}" | while IFS= read -r entry; do
+  entry=$(trim "$entry")
+  [[ -n $entry ]] || continue
+  if [[ $entry =~ $re ]]; then
+    prefix=$(trim "${BASH_REMATCH[1]}")
+    prefix=${prefix#*://}
+    prefix=${prefix%/}
+    printf '%d\t%s\t%s\t%s\n' "${#prefix}" "$prefix" "$(trim "${BASH_REMATCH[2]}")" "$(trim "${BASH_REMATCH[3]}")"
+  else
+    echo "render-git-identities: skipping invalid entry '$entry' (want host[/path]=Name <email>)" >&2
+  fi
+done | sort -n -k1,1 | {
+  n=0
+  while IFS=$'\t' read -r _ prefix name email; do
+    n=$((n + 1))
+    user_block "$name" "$email" > "$out/id-$n.gitconfig"
+    printf '[includeIf "hasconfig:remote.*.url:https://%s/**"]\n\tpath = id-%d.gitconfig\n' "$prefix" "$n" >> "$main"
+  done
+}
