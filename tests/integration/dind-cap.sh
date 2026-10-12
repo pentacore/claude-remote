@@ -2,10 +2,10 @@
 # Proves the loop image caps Docker storage, persists across restarts, grows, and refuses to shrink.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-IMG=claude-remote-dind:test C=crcap V=crcap-data V2=crcap-raw
+IMG=claude-remote-dind:test C=crcap V=crcap-data V2=crcap-raw V3=crcap-ext4
 pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*"; docker logs "$C" 2>&1 | tail -n 30; exit 1; }
-cleanup() { docker rm -f "$C" >/dev/null 2>&1 || true; docker volume rm "$V" "$V2" >/dev/null 2>&1 || true; }
+cleanup() { docker rm -f "$C" >/dev/null 2>&1 || true; docker volume rm "$V" "$V2" "$V3" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 cleanup
 
@@ -28,6 +28,7 @@ backed_by_image() { # is /var/lib/docker backed by /dind/docker.img?
   docker exec "$C" sh -c 'dev=$(awk '"'"'$2 == "/var/lib/docker" { d = $1 } END { print d }'"'"' /proc/mounts); losetup -a | grep "^$dev:" | grep -q /dind/docker.img'
 }
 backed_by_image || fail "/var/lib/docker is not backed by the loop image"
+[ "$(docker exec "$C" stat -f -c %T /var/lib/docker)" = xfs ] || fail "loop image is not xfs (Unraid kernels have no ext4)"
 pass "1 GiB loop image mounted"
 
 docker exec "$C" touch /var/lib/docker/persist-marker
@@ -70,9 +71,17 @@ pass "an unformatted image from an interrupted first start is formatted"
 # a /dev/loop*: our image must still be mounted over it (the cap was silently skipped before).
 docker rm -f "$C" >/dev/null 2>&1 || true
 docker run -d --privileged --name "$C" -e DIND_SIZE_GB=1 -v "$V:/dind" --entrypoint sh "$IMG" -c \
-  'truncate -s 300M /tmp/host-docker.img && mkfs.ext4 -q -F /tmp/host-docker.img \
+  'truncate -s 300M /tmp/host-docker.img && mkfs.xfs -q -f /tmp/host-docker.img \
    && mount -o loop /tmp/host-docker.img /var/lib/docker && exec /usr/local/bin/dind-entrypoint.sh' >/dev/null
 for _ in $(seq 60); do docker exec "$C" docker -H unix:///var/run/docker.sock info >/dev/null 2>&1 && break; sleep 2; done
 backing=$(docker exec "$C" sh -c 'dev=$(awk '"'"'$2 == "/var/lib/docker" { d = $1 } END { print d }'"'"' /proc/mounts); losetup -a | grep "^$dev:"')
 grep -q "/dind/docker.img" <<<"$backing" || fail "/var/lib/docker is not backed by /dind/docker.img (got: $backing)"
 pass "our loop image is mounted even when /var/lib/docker already sits on another loop device (Unraid)"
+
+# An existing image with a filesystem the kernel may not mount (ext4 from earlier versions) is reformatted as xfs
+docker run --rm -v "$V3:/dind" alpine sh -c 'apk add -q e2fsprogs >/dev/null && truncate -s 1073741824 /dind/docker.img && mkfs.ext4 -q -F /dind/docker.img'
+start 1 "$V3"
+[ "$(docker exec "$C" stat -f -c %T /var/lib/docker)" = xfs ] || fail "ext4 image was not reformatted as xfs"
+logs=$(docker logs "$C" 2>&1)
+grep -q "holds ext4" <<<"$logs" || fail "no reformat log line"
+pass "an ext4 image from an earlier version is reformatted as xfs"

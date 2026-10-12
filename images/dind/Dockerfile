@@ -1,5 +1,5 @@
 FROM docker:29-dind
-RUN apk add --no-cache e2fsprogs e2fsprogs-extra jq curl tzdata
+RUN apk add --no-cache xfsprogs xfsprogs-extra e2fsprogs-extra losetup jq curl tzdata
 COPY entrypoint.sh /usr/local/bin/dind-entrypoint.sh
 COPY janitor.sh /usr/local/bin/janitor.sh
 COPY janitor-lib.sh /usr/local/lib/janitor-lib.sh
