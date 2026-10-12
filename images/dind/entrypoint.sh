@@ -7,23 +7,31 @@ SIZE_GB=${DIND_SIZE_GB:-100}
 want=$((SIZE_GB * 1024 * 1024 * 1024))
 
 mkdir -p "$(dirname "$IMG")" /var/lib/docker
+fs_type() { blkid "$IMG" 2>/dev/null | sed -n 's/.* TYPE="\([^"]*\)".*/\1/p'; }
+
 if [ ! -f "$IMG" ]; then
   echo "dind: creating ${SIZE_GB}G loop image at $IMG"
   : > "$IMG"
   chattr +C "$IMG" 2>/dev/null || true # no copy-on-write on btrfs pools
   truncate -s "$want" "$IMG"
 fi
-if ! dumpe2fs -h "$IMG" >/dev/null 2>&1; then
-  # new image, or a first start that was interrupted before mkfs: there is nothing to lose
-  echo "dind: no filesystem in $IMG; formatting"
-  mkfs.ext4 -q -F -m 0 "$IMG"
+# xfs: Unraid kernels ship xfs/btrfs/zfs but no ext4. Anything else in the image (nothing yet, an
+# interrupted first start, or ext4 from an earlier version) only held dind's cache: reformat it.
+type=$(fs_type)
+if [ "$type" != xfs ]; then
+  if [ -n "$type" ]; then
+    echo "dind: $IMG holds $type, which not every kernel can mount; reformatting as xfs (cached images are dropped)"
+  else
+    echo "dind: no filesystem in $IMG; formatting"
+  fi
+  mkfs.xfs -q -f "$IMG"
 fi
+grow=
 have=$(stat -c %s "$IMG")
 if [ "$have" -lt "$want" ]; then
   echo "dind: growing loop image to ${SIZE_GB}G"
   truncate -s "$want" "$IMG"
-  e2fsck -fy "$IMG" >/dev/null || [ $? -lt 4 ]
-  resize2fs "$IMG" >/dev/null
+  grow=1
 elif [ "$have" -gt "$want" ]; then
   echo "dind: WARNING: DIND_SIZE_GB=${SIZE_GB} is below the existing $((have / 1073741824))G image; shrinking is not supported, keeping current size"
 fi
@@ -33,7 +41,14 @@ fi
 # docker.img), so "is a mountpoint" or "is a /dev/loop*" says nothing about our cap.
 current=$(awk '$2 == "/var/lib/docker" { dev = $1 } END { print dev }' /proc/mounts)
 if ! losetup -a 2>/dev/null | grep "^$current:" | grep -qF "$IMG"; then
-  mount -o loop "$IMG" /var/lib/docker
+  # explicit type: auto-detection only tries filesystems already in /proc/filesystems, so an
+  # xfs module that is not loaded yet (e.g. Ubuntu) would never be tried
+  mount -t xfs -o loop "$IMG" /var/lib/docker
+fi
+if [ -n "$grow" ]; then
+  # Grow xfs online to exactly the image size. Without -D, xfs_growfs sizes the device from the
+  # first /proc/mounts entry for /var/lib/docker, which is the VOLUME underneath, not our loop.
+  xfs_growfs -D $((want / $(stat -f -c %S /var/lib/docker))) /var/lib/docker >/dev/null
 fi
 
 # busybox crond does not pass the container env to jobs
