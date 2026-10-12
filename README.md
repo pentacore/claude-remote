@@ -24,7 +24,7 @@ GitHub Actions builds `ghcr.io/pentacore/claude-remote-claude` and `-dind` (linu
 
 ## First run / re-login
 ```bash
-docker exec -it -u claude claude-remote-claude-1 claude auth login
+docker exec -it claude-remote-claude-1 claude auth login
 docker exec -it -u claude claude-remote-claude-1 tmux attach -t rc
 ```
 Answer "Enable Remote Control?" and the workspace-trust prompt, then detach with `Ctrl-b d`. "Babel" appears in the Claude app's Remote Control list. When the login expires the container turns unhealthy; repeat both commands.

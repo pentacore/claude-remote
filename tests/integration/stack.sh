@@ -62,6 +62,10 @@ sshc() { cx "ssh -p 2222 -i /tmp/stack-test-key -o StrictHostKeyChecking=no -o U
 if sshc "-o BatchMode=yes -o PubkeyAuthentication=no" true 2>/dev/null; then fail "SSH accepted a login without a key"; fi
 pass "SSH: key login gets docker and toolchains, keyless login refused"
 
+[ "$(dc exec -T claude sh -lc 'command -v claude')" = /usr/local/bin/claude ] || fail "root shell does not use the claude wrapper"
+[ "$(dc exec -T claude sh -c 'CLAUDE_REAL=/usr/bin/whoami claude')" = claude ] || fail "claude from a root shell does not run as the claude user"
+pass "claude from a root shell runs as the claude user"
+
 if dc exec -T -u claude claude env HOME=/home/claude /usr/local/bin/healthcheck >/dev/null; then
   fail "healthcheck passed without a claude.ai login"
 fi
