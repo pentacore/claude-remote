@@ -15,7 +15,7 @@ GitHub Actions builds `ghcr.io/pentacore/claude-remote-claude` and `-dind` (linu
 - Seeded once at first start (user scope; remove them and they stay removed): `playwright` and `context7` MCP servers, `superpowers` and `mattpocock-skills` plugins. Set `CLAUDE_SEED=false` to skip. Anything else you install (`claude mcp add`, `/plugin install`) persists in `home/`.
 
 ## Deploy (Dockhand)
-1. Data dir: make sure the `appdata` share lives only on the pool, then use its direct path as `DATA_DIR` (e.g. `/mnt/cache/appdata/claude-remote`).
+1. Data dir: `DATA_DIR` defaults to `/mnt/user/appdata/claude-remote`. Keep `appdata` an exclusive share on a pool (the Unraid 6.12+ default) so it bypasses the FUSE layer; a direct pool path such as `/mnt/cache/appdata/claude-remote` also works.
 2. Dockhand → Git repositories: add this repo (public, no credential needed).
 3. Dockhand → Stacks → new git stack `claude-remote` on environment **Babel**, compose file `compose.yaml`.
 4. Stack environment: copy `.env.example`; fill tokens and identity (see Accounts), `DATA_DIR`, and optionally `PERMISSION_MODE`.

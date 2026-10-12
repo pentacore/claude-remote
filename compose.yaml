@@ -18,8 +18,8 @@ services:
       JANITOR_SOFT_PCT: ${JANITOR_SOFT_PCT:-75}
       JANITOR_HARD_PCT: ${JANITOR_HARD_PCT:-90}
     volumes:
-      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/dind:/dind
-      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/workspace:/workspace
+      - ${DATA_DIR:-/mnt/user/appdata/claude-remote}/dind:/dind
+      - ${DATA_DIR:-/mnt/user/appdata/claude-remote}/workspace:/workspace
       - certs:/certs
     ports:
       - "${PORT_RANGE:-18000-18099}:${PORT_RANGE:-18000-18099}"
@@ -63,8 +63,8 @@ services:
       CLAUDE_SEED: ${CLAUDE_SEED:-true}
       CONTEXT7_API_KEY: ${CONTEXT7_API_KEY:-}
     volumes:
-      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/home:/home/claude
-      - ${DATA_DIR:-/mnt/cache/appdata/claude-remote}/workspace:/workspace
+      - ${DATA_DIR:-/mnt/user/appdata/claude-remote}/home:/home/claude
+      - ${DATA_DIR:-/mnt/user/appdata/claude-remote}/workspace:/workspace
       - certs:/certs:ro
     ports:
       - "${SSH_PORT:-2222}:2222"
