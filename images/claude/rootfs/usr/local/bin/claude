@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Runs Claude Code as the claude user even from a root shell (`docker exec` without `-u claude`),
+# so logins and settings always land in /home/claude, where Remote Control looks for them.
+REAL=${CLAUDE_REAL:-/home/claude/.local/bin/claude}
+if [[ ${CLAUDE_WRAPPER_UID:-$(id -u)} == 0 ]]; then
+  exec "${RUNUSER:-runuser}" -u claude -- env HOME=/home/claude USER=claude LOGNAME=claude "$REAL" "$@"
+fi
+exec "$REAL" "$@"

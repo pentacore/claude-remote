@@ -20,6 +20,8 @@ while true; do
     if ! tmux has-session -t rc 2>/dev/null; then
       log "starting remote-control in tmux session 'rc'"
       tmux new-session -d -s rc -c /workspace /usr/local/bin/rc-loop
+      # keep the pane's output (e.g. why remote-control exits) for the healthcheck and Dockhand
+      tmux pipe-pane -t rc -o "cat >> /workspace/.claude-remote/logs/remote-control.log"
     fi
   fi
   if [[ $(date +%H) == 04 && $(date +%F) != "$last_maint" ]]; then

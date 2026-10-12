@@ -62,7 +62,7 @@ COPY rootfs/ /
 RUN chmod 0755 /usr/local/bin/* /usr/local/lib/claude-remote/hooks/*
 
 ENV CARGO_HOME=/home/claude/.cargo \
-    PATH=/home/claude/.local/bin:/home/claude/.cargo/bin:/home/claude/go/bin:/opt/cargo/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PATH=/usr/local/bin:/home/claude/.local/bin:/home/claude/.cargo/bin:/home/claude/go/bin:/opt/cargo/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     DOCKER_HOST=tcp://dind:2376 DOCKER_TLS_VERIFY=1 DOCKER_CERT_PATH=/run/claude-remote/certs
 
 WORKDIR /workspace

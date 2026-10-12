@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Runs `claude remote-control` forever; backs off when it exits quickly (e.g. not logged in).
 cd /workspace || exit 1
+log=${RC_LOG:-/workspace/.claude-remote/logs/remote-control.log}
 while true; do
+  # the pane log only needs the recent past
+  if [[ -f $log && $(stat -c %s "$log") -gt 1048576 ]]; then : > "$log"; fi
   started=$(date +%s)
   args=(remote-control --name "${RC_NAME:-Babel}" --capacity "${RC_CAPACITY:-3}"
         --permission-mode "${PERMISSION_MODE:-auto}")
@@ -9,10 +12,10 @@ while true; do
   claude "${args[@]}"
   code=$?
   if (($(date +%s) - started < 60)); then
-    echo "remote-control exited ($code) within a minute; if not logged in run: claude auth login. Retrying in 60s."
+    echo "rc-loop: remote-control exited ($code) within a minute; see the message above. Retrying in 60s."
     sleep 60
   else
-    echo "remote-control exited ($code); restarting in 5s"
+    echo "rc-loop: remote-control exited ($code); restarting in 5s"
     sleep 5
   fi
 done
