@@ -22,6 +22,10 @@ elif [[ -n $repo ]]; then
 else
   read -r host path <<<"$(parse_remote "$(git remote get-url origin 2>/dev/null)")"
 fi
-tok=$(token_for "${host:-github.com}" "$path")
-[[ -n $tok ]] && export GH_TOKEN=$tok
+host=${host:-github.com}
+# Only ever hand gh a token meant for GitHub (or the GitHub Enterprise host in GH_HOST).
+if [[ $host == github.com || (-n ${GH_HOST:-} && $host == "$GH_HOST") ]]; then
+  tok=$(token_for "$host" "$path")
+  [[ -n $tok ]] && export GH_TOKEN=$tok
+fi
 exec "$REAL" "$@"

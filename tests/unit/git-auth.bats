@@ -70,3 +70,7 @@ inrepo() { git init -q "$TMP/r"; git -C "$TMP/r" remote add origin "$1"; cd "$TM
 @test "system gitconfig sends the repo path to the helper" {
   git config -f "$ROOT/images/claude/rootfs/etc/gitconfig" --get credential.useHttpPath | grep -qx true
 }
+@test "gh never exports a non-GitHub token" {
+  inrepo https://gitlab.com/acme-group/app.git
+  run "$CLAUDE_BIN_DIR/gh" search code foo; [ "$output" = "token= args=search code foo" ]
+}

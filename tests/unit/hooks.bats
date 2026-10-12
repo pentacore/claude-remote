@@ -116,3 +116,31 @@ mkwt() { # mkwt <name> → worktree $CLAUDE_WORKTREES_DIR/<name>-deadbeef on its
     jq -e --arg e "$e" '.hooks[$e][0].hooks[0].command | startswith("/usr/local/lib/claude-remote/hooks/")' "$f"
   done
 }
+
+@test "session-end keeps worktrees containing files it does not own (root-owned build output)" {
+  mkrepo; mkwt owned
+  wt=$CLAUDE_WORKTREES_DIR/owned-deadbeef
+  (cd "$wt" && echo "build/" > .gitignore && git add .gitignore && git commit -qm ignore && git push -q -u origin HEAD)
+  mkdir -p "$wt/build" && touch "$wt/build/out" && chown 12345 "$wt/build/out"
+  run hook session-end.sh
+  [ "$status" -eq 0 ]
+  [ -f "$wt/a" ]; [ -f "$wt/build/out" ]
+  git -C "$TMP/repos/api" worktree list | grep -q owned-deadbeef
+  grep -q "kept .*owned-deadbeef: contains files not owned by" "$CLAUDE_REMOTE_LOG_DIR/session-end.log"
+}
+@test "session-end on /clear leaves everything to the janitor's idle rule" {
+  cat > "$TMP/respond" <<'R'
+case "$*" in
+  "ps -aq --filter label=claude.session=deadbeef") echo c-run ;;
+esac
+R
+  export FAKE_DOCKER_RESPOND=$TMP/respond
+  mkrepo; mkwt cleared
+  (cd "$CLAUDE_WORKTREES_DIR/cleared-deadbeef" && git push -q -u origin HEAD)
+  touch "$CLAUDE_SESSIONS_DIR/$SID"
+  run sh -c "printf '{\"session_id\":\"$SID\",\"reason\":\"clear\"}' | '$HOOKS_DIR/session-end.sh'"
+  [ "$status" -eq 0 ]
+  refute grep -q "^rm " "$FAKE_DOCKER_LOG"
+  [ -d "$CLAUDE_WORKTREES_DIR/cleared-deadbeef" ]; [ -e "$CLAUDE_SESSIONS_DIR/$SID" ]
+  grep -q "cleared" "$CLAUDE_REMOTE_LOG_DIR/session-end.log"
+}
