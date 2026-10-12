@@ -41,7 +41,9 @@ fi
 # docker.img), so "is a mountpoint" or "is a /dev/loop*" says nothing about our cap.
 current=$(awk '$2 == "/var/lib/docker" { dev = $1 } END { print dev }' /proc/mounts)
 if ! losetup -a 2>/dev/null | grep "^$current:" | grep -qF "$IMG"; then
-  mount -o loop "$IMG" /var/lib/docker
+  # explicit type: auto-detection only tries filesystems already in /proc/filesystems, so an
+  # xfs module that is not loaded yet (e.g. Ubuntu) would never be tried
+  mount -t xfs -o loop "$IMG" /var/lib/docker
 fi
 if [ -n "$grow" ]; then
   # Grow xfs online to exactly the image size. Without -D, xfs_growfs sizes the device from the

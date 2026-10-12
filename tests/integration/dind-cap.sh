@@ -72,7 +72,7 @@ pass "an unformatted image from an interrupted first start is formatted"
 docker rm -f "$C" >/dev/null 2>&1 || true
 docker run -d --privileged --name "$C" -e DIND_SIZE_GB=1 -v "$V:/dind" --entrypoint sh "$IMG" -c \
   'truncate -s 300M /tmp/host-docker.img && mkfs.xfs -q -f /tmp/host-docker.img \
-   && mount -o loop /tmp/host-docker.img /var/lib/docker && exec /usr/local/bin/dind-entrypoint.sh' >/dev/null
+   && mount -t xfs -o loop /tmp/host-docker.img /var/lib/docker && exec /usr/local/bin/dind-entrypoint.sh' >/dev/null
 for _ in $(seq 60); do docker exec "$C" docker -H unix:///var/run/docker.sock info >/dev/null 2>&1 && break; sleep 2; done
 backing=$(docker exec "$C" sh -c 'dev=$(awk '"'"'$2 == "/var/lib/docker" { d = $1 } END { print d }'"'"' /proc/mounts); losetup -a | grep "^$dev:"')
 grep -q "/dind/docker.img" <<<"$backing" || fail "/var/lib/docker is not backed by /dind/docker.img (got: $backing)"
