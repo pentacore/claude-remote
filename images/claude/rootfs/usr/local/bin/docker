@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# docker shim: tags containers, images, networks, volumes and compose projects with the
+# Claude session that created them (so hooks and the janitor can clean up), then execs the real CLI.
+set -euo pipefail
+REAL=${DOCKER_REAL:-/usr/libexec/docker-real/docker}
+
+if [[ -n ${CLAUDE_SESSION_ID:-} ]]; then
+  owner=${CLAUDE_SESSION_ID:0:8}
+elif [[ $PWD =~ /wt/[^/]+-([0-9a-f]{8})(/|$) ]]; then
+  owner=${BASH_REMATCH[1]}
+else
+  owner=manual
+fi
+label="claude.session=$owner"
+
+args=("$@")
+n=${#args[@]}
+
+# Skip docker's global options to find the command.
+i=0
+while ((i < n)); do
+  case ${args[i]} in
+    --config | -c | --context | -H | --host | -l | --log-level | --tlscacert | --tlscert | --tlskey) i=$((i + 2)) ;;
+    -*) i=$((i + 1)) ;;
+    *) break ;;
+  esac
+done
+((i < n)) || exec "$REAL" "$@"
+
+insert_at() { # insert_at <index> <words...>
+  local at=$1
+  shift
+  args=("${args[@]:0:at}" "$@" "${args[@]:at}")
+}
+
+sanitize() { # compose project names: lowercase alnum, '-' and '_', starting with alnum
+  local s
+  s=$(tr '[:upper:]' '[:lower:]' <<<"$1" | tr -c 'a-z0-9_\n-' '-')
+  s=${s#"${s%%[a-z0-9]*}"}
+  printf '%s' "${s:-project}"
+}
+
+rewrite_compose() {
+  local j=$((i + 1)) base="" kept=()
+  while ((j < n)); do
+    case ${args[j]} in
+      -p | --project-name) base=${args[j + 1]:-}; j=$((j + 2)) ;;
+      --project-name=*) base=${args[j]#*=}; j=$((j + 1)) ;;
+      -p?*) base=${args[j]#-p}; j=$((j + 1)) ;;
+      -f | --file | --project-directory | --env-file | --profile | --ansi | --progress | --parallel)
+        kept+=("${args[j]}" "${args[j + 1]:-}"); j=$((j + 2)) ;;
+      -*) kept+=("${args[j]}"); j=$((j + 1)) ;;
+      *) break ;;
+    esac
+  done
+  [[ -n $base ]] || base=${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}
+  base=$(sanitize "$base")
+  [[ $base == *-"$owner" ]] || base="$base-$owner"
+  args=("${args[@]:0:i+1}" -p "$base" "${kept[@]}" "${args[@]:j}")
+}
+
+cmd=${args[i]}
+sub=${args[i + 1]:-}
+case $cmd in
+  run | create | build) insert_at $((i + 1)) --label "$label" ;;
+  container) if [[ $sub == run || $sub == create ]]; then insert_at $((i + 2)) --label "$label"; fi ;;
+  image | builder | buildx) if [[ $sub == build ]]; then insert_at $((i + 2)) --label "$label"; fi ;;
+  network | volume) if [[ $sub == create ]]; then insert_at $((i + 2)) --label "$label"; fi ;;
+  compose) rewrite_compose ;;
+esac
+
+exec "$REAL" "${args[@]}"
