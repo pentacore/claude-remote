@@ -13,6 +13,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same ref cancels an older in-flight run, so an outdated build can never
+# finish last and overwrite :latest.
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest

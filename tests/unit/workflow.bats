@@ -21,3 +21,7 @@ setup() { load helpers/common; F="$ROOT/.github/workflows/images.yml"; }
   [ "$status" -eq 1 ]
   grep -q '^FROM debian:trixie-slim' "$ROOT/images/claude/Dockerfile"
 }
+@test "a newer push cancels an older in-flight image build (no stale :latest race)" {
+  grep -qE '^concurrency:' "$F"
+  grep -qE '^\s+cancel-in-progress: true' "$F"
+}
