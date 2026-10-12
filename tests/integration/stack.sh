@@ -66,6 +66,10 @@ pass "SSH: key login gets docker and toolchains, keyless login refused"
 [ "$(dc exec -T claude sh -c 'CLAUDE_REAL=/usr/bin/whoami claude')" = claude ] || fail "claude from a root shell does not run as the claude user"
 pass "claude from a root shell runs as the claude user"
 
+for _ in $(seq 60); do cx 'test -s /workspace/.claude-remote/logs/remote-control.log' 2>/dev/null && break; sleep 2; done
+cx 'grep -q "rc-loop: remote-control exited" /workspace/.claude-remote/logs/remote-control.log' || fail "remote-control pane is not logged"
+pass "remote-control output is logged for the healthcheck"
+
 if dc exec -T -u claude claude env HOME=/home/claude /usr/local/bin/healthcheck >/dev/null; then
   fail "healthcheck passed without a claude.ai login"
 fi

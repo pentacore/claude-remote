@@ -7,7 +7,10 @@ if ! "$CLAUDE_BIN" auth status >/dev/null 2>&1; then
   exit 1
 fi
 if ! "$PGREP" -f 'remote-control' >/dev/null 2>&1; then
-  echo "unhealthy: claude remote-control is not running"
+  # last line remote-control itself printed (the rc tmux pane is logged by the supervisor)
+  reason=$(tail -n 50 "${RC_LOG:-/workspace/.claude-remote/logs/remote-control.log}" 2>/dev/null |
+    sed -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\r//g' | grep -v -e '^[[:space:]]*$' -e '^rc-loop:' | tail -n 1)
+  echo "unhealthy: claude remote-control is not running${reason:+: $reason}"
   exit 1
 fi
 echo healthy
