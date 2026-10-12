@@ -28,13 +28,13 @@ elif [ "$have" -gt "$want" ]; then
   echo "dind: WARNING: DIND_SIZE_GB=${SIZE_GB} is below the existing $((have / 1073741824))G image; shrinking is not supported, keeping current size"
 fi
 
-# The stock image declares /var/lib/docker a VOLUME, so it is already a mountpoint: mount the
-# loop image over it unless a loop device is mounted there already.
+# Mount our image over /var/lib/docker unless it is already backed by it. The stock image declares
+# /var/lib/docker a VOLUME, and on Unraid that volume itself sits on a loop device (Docker's own
+# docker.img), so "is a mountpoint" or "is a /dev/loop*" says nothing about our cap.
 current=$(awk '$2 == "/var/lib/docker" { dev = $1 } END { print dev }' /proc/mounts)
-case "$current" in
-  /dev/loop*) ;;
-  *) mount -o loop "$IMG" /var/lib/docker ;;
-esac
+if ! losetup -a 2>/dev/null | grep "^$current:" | grep -qF "$IMG"; then
+  mount -o loop "$IMG" /var/lib/docker
+fi
 
 # busybox crond does not pass the container env to jobs
 . /usr/local/lib/janitor-lib.sh

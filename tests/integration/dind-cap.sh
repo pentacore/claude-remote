@@ -24,8 +24,10 @@ docker build -q -t "$IMG" images/dind >/dev/null
 
 start 1
 [ "$(docker exec "$C" stat -c %s /dind/docker.img)" = 1073741824 ] || fail "image is not 1 GiB"
-docker exec "$C" sh -c "awk '\$2 == \"/var/lib/docker\" { print \$1 }' /proc/mounts | tail -n 1 | grep -q '^/dev/loop'" \
-  || fail "/var/lib/docker is not the loop image"
+backed_by_image() { # is /var/lib/docker backed by /dind/docker.img?
+  docker exec "$C" sh -c 'dev=$(awk '"'"'$2 == "/var/lib/docker" { d = $1 } END { print d }'"'"' /proc/mounts); losetup -a | grep "^$dev:" | grep -q /dind/docker.img'
+}
+backed_by_image || fail "/var/lib/docker is not backed by the loop image"
 pass "1 GiB loop image mounted"
 
 docker exec "$C" touch /var/lib/docker/persist-marker
@@ -63,3 +65,14 @@ docker exec "$C" sh -c "awk '\$2 == \"/var/lib/docker\" { print \$1 }' /proc/mou
 logs=$(docker logs "$C" 2>&1)
 grep -q "no filesystem" <<<"$logs" || fail "no recovery log line"
 pass "an unformatted image from an interrupted first start is formatted"
+
+# Unraid keeps Docker's own data on a loop device, so dind's /var/lib/docker volume already sits on
+# a /dev/loop*: our image must still be mounted over it (the cap was silently skipped before).
+docker rm -f "$C" >/dev/null 2>&1 || true
+docker run -d --privileged --name "$C" -e DIND_SIZE_GB=1 -v "$V:/dind" --entrypoint sh "$IMG" -c \
+  'truncate -s 300M /tmp/host-docker.img && mkfs.ext4 -q -F /tmp/host-docker.img \
+   && mount -o loop /tmp/host-docker.img /var/lib/docker && exec /usr/local/bin/dind-entrypoint.sh' >/dev/null
+for _ in $(seq 60); do docker exec "$C" docker -H unix:///var/run/docker.sock info >/dev/null 2>&1 && break; sleep 2; done
+backing=$(docker exec "$C" sh -c 'dev=$(awk '"'"'$2 == "/var/lib/docker" { d = $1 } END { print d }'"'"' /proc/mounts); losetup -a | grep "^$dev:"')
+grep -q "/dind/docker.img" <<<"$backing" || fail "/var/lib/docker is not backed by /dind/docker.img (got: $backing)"
+pass "our loop image is mounted even when /var/lib/docker already sits on another loop device (Unraid)"
