@@ -6,7 +6,8 @@ You are running in the `claude` container of the `claude-remote` stack on Babel 
 - Clone each repo once into `/workspace/repos/<host>/<owner>/<repo>` over https (e.g. `/workspace/repos/github.com/acme/api`). Git auth comes from `GH_TOKEN`/`GITLAB_TOKEN`; never use SSH remotes.
 - Never work directly in `/workspace/repos/...`. Create your own worktree; the `-<id8>` suffix is required because cleanup finds your work by it:
   ```bash
-  id8=${CLAUDE_SESSION_ID:0:8}
+  id8=${CLAUDE_SESSION_ID:?CLAUDE_SESSION_ID is not set}
+  id8=${id8:0:8}
   repo=/workspace/repos/github.com/acme/api
   git -C "$repo" fetch origin
   git -C "$repo" worktree add -b "claude/<topic>-$id8" "/workspace/wt/api-$id8" origin/HEAD

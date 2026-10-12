@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Writes sshd's per-user environment (SSH/IDE sessions don't inherit the container env), or removes
+# it when SSH is disabled so tokens don't linger on the host.
+set -euo pipefail
+file=${1:?usage: write-ssh-environment <file>}
+if [[ ${ENABLE_SSH:-false} != true ]]; then
+  rm -f "$file"
+  exit 0
+fi
+(umask 077 && : > "$file")
+for v in PATH CARGO_HOME RUSTUP_HOME DOCKER_HOST DOCKER_TLS_VERIFY DOCKER_CERT_PATH GH_TOKEN GITLAB_TOKEN \
+         GITLAB_HOST GIT_TOKENS PERMISSION_MODE PLAYWRIGHT_BROWSERS_PATH TZ LANG; do
+  if [[ -n ${!v:-} ]]; then printf '%s=%s\n' "$v" "${!v}" >> "$file"; fi
+done
+chmod 0600 "$file"

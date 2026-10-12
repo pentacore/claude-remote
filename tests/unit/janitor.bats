@@ -115,3 +115,22 @@ removed() { grep -Fxq "rm -f -v $1" "$FAKE_DOCKER_LOG"; }
     grep -Fxq "$c" "$FAKE_DOCKER_LOG"
   done
 }
+@test "owner_of: labels that are not 8 hex chars or manual count as untagged (no glob tricks)" {
+  run lib 'owner_of "*" ""';        [ "$output" = "" ]
+  run lib 'owner_of "zzzzzzzz" ""'; [ "$output" = "" ]
+  run lib 'owner_of "dead*" ""';    [ "$output" = "" ]
+}
+@test "a container labelled '*' does not ride on another session's marker" {
+  marker aaaaaaaa-1 1
+  containers "c-glob|90|*|"
+  run lib 'sweep'
+  removed c-glob
+}
+@test "write_env_file quotes values so cron can source them safely" {
+  export TZ="Europe/Stockholm\$(touch $TMP/pwned)'\`x\`\"" JANITOR_IDLE_MIN=7
+  run lib "write_env_file '$TMP/env'"
+  [ "$status" -eq 0 ]
+  run sh -c ". '$TMP/env'; printf '%s|%s' \"\$TZ\" \"\$JANITOR_IDLE_MIN\""
+  [ "$output" = "Europe/Stockholm\$(touch $TMP/pwned)'\`x\`\"|7" ]
+  [ ! -e "$TMP/pwned" ]
+}

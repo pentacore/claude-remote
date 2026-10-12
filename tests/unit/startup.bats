@@ -43,3 +43,15 @@ teardown() { rm -rf "$TMP"; }
   [ "${lines[-1]}" = default ]
   [ "$(jq -r .permissions.defaultMode "$TMP/settings.json")" = default ]
 }
+@test "ssh environment is written 0600 with the tooling env when SSH is enabled" {
+  export ENABLE_SSH=true GH_TOKEN=ghp_x DOCKER_HOST=tcp://dind:2376
+  run "$CLAUDE_BIN_DIR/write-ssh-environment" "$TMP/environment"
+  [ "$status" -eq 0 ]
+  grep -Fxq "GH_TOKEN=ghp_x" "$TMP/environment"; grep -Fxq "DOCKER_HOST=tcp://dind:2376" "$TMP/environment"
+  [ "$(stat -c %a "$TMP/environment")" = 600 ]
+}
+@test "ssh environment (and its tokens) is removed when SSH is disabled" {
+  echo "GH_TOKEN=old" > "$TMP/environment"
+  ENABLE_SSH=false run "$CLAUDE_BIN_DIR/write-ssh-environment" "$TMP/environment"
+  [ "$status" -eq 0 ]; [ ! -e "$TMP/environment" ]
+}

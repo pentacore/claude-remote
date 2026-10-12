@@ -1,7 +1,9 @@
 ARG DOCKER_MAJOR=29
 FROM docker:${DOCKER_MAJOR}-cli AS dockercli
 FROM golang:bookworm AS go
-RUN go install gitlab.com/gitlab-org/cli/cmd/glab@latest
+# Stamp the release version (plain `go install` reports "DEV")
+RUN v=$(go list -m -f '{{.Version}}' gitlab.com/gitlab-org/cli@latest) \
+ && go install -ldflags "-X main.version=${v#v}" "gitlab.com/gitlab-org/cli/cmd/glab@$v"
 FROM composer:2 AS composer
 FROM node:24-bookworm-slim AS node
 FROM oven/bun:1-debian AS bun

@@ -12,6 +12,8 @@ services:
       GIT_EMAIL: fallback@example.com
       GIT_IDENTITIES: github.com/acme=Work Person <work@example.com>
       PERMISSION_MODE: bogus
+      ENABLE_SSH: "true"
+      SSH_AUTHORIZED_KEYS: ${SSH_TEST_PUBKEY:?set by stack.sh}
     volumes:
       - test-home:/home/claude
       - test-workspace:/workspace

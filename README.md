@@ -45,6 +45,8 @@ Gateway → SSH connection → same host/port/user, project dir under `/workspac
 
 ## Operations
 - Logs: Dockhand → container logs (`dind` shows janitor actions; `claude` shows supervisor/maintenance). Session teardown log: `/workspace/.claude-remote/logs/session-end.log`.
+- Project containers are throwaway: stopped containers and unused volumes (including named ones) are pruned hourly, so a dind restart also clears project databases.
+- Containers created through the Docker API instead of the `docker` CLI (IDE Docker plugins, Testcontainers) carry no session tag and are removed after `JANITOR_UNTAGGED_MAX_AGE_MIN` (default 60). Raise it if you keep such containers running longer.
 - Grow Docker storage: raise `DIND_SIZE_GB`, redeploy (shrinking is not supported; delete `dind/docker.img` with the stack stopped to recreate).
 - Updates: `claude` follows the weekly image via Dockhand auto-update (this ends running Remote Control sessions, so keep Dockhand's update check at night). Claude Code also updates itself in between.
 - Update dind: pull and recreate `claude-remote-dind-1` by hand when convenient; bump `DOCKER_MAJOR` (workflow + `.env`) deliberately.

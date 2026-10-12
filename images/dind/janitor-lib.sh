@@ -27,7 +27,13 @@ containers_psv() {
 
 # owner_of <session_label> <compose_project> → id8, "manual", or "" (untagged)
 owner_of() {
-  if [ -n "$1" ]; then printf '%.8s' "$1"; return; fi
+  if [ -n "$1" ]; then
+    case "$1" in
+      manual) printf 'manual' ;;
+      [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) printf '%.8s' "$1" ;;
+    esac
+    return
+  fi
   case "$2" in
     *-manual) printf 'manual' ;;
     *-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) printf '%s' "${2##*-}" ;;
@@ -117,6 +123,13 @@ disk_check() {
     log "docker storage at ${pct}% (>= ${JANITOR_SOFT_PCT}%): full prune"
     prune_full
   fi
+}
+
+# write_env_file <file>: janitor settings from the environment, single-quoted so cron can source them
+write_env_file() {
+  env | grep -E '^(JANITOR_[A-Z_]+|SESSIONS_DIR|WORKSPACE_DIR|TZ)=' | while IFS= read -r line; do
+    printf "export %s='%s'\n" "${line%%=*}" "$(printf '%s' "${line#*=}" | sed "s/'/'\\\\''/g")"
+  done > "$1"
 }
 
 log_workspace_size() { log "workspace size: $(du -sh "$WORKSPACE_DIR" 2>/dev/null | cut -f1)"; }
