@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Daily housekeeping for the claude home: drop old IDE backends, wipe oversized package caches.
+set -uo pipefail
+keep=${IDE_KEEP_VERSIONS:-2}
+max_gb=${CACHE_MAX_GB:-20}
+log() { printf '%s maintenance: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"; }
+
+keep_newest() { # keep_newest <dir>: delete all but the $keep most recently modified entries
+  [[ -d $1 ]] || return 0
+  ls -1t "$1" | tail -n +$((keep + 1)) | while IFS= read -r e; do
+    log "removing old IDE backend $1/$e"
+    rm -rf -- "${1:?}/$e"
+  done
+}
+keep_newest "$HOME/.cache/JetBrains/RemoteDev/dist"
+keep_newest "$HOME/.vscode-server/cli/servers"
+
+caches=()
+for d in "$HOME/.npm/_cacache" "$HOME/.local/share/pnpm/store" "$HOME/.bun/install/cache" \
+         "$HOME/.cache/uv" "$HOME/.cache/composer" "$HOME/.cache/go-build" \
+         "$HOME/go/pkg/mod" "$HOME/.cargo/registry"; do
+  [[ -e $d ]] && caches+=("$d")
+done
+((${#caches[@]})) || exit 0
+kib=$(du -sk "${caches[@]}" 2>/dev/null | awk '{ s += $1 } END { print s + 0 }')
+log "package caches: $((kib / 1024)) MiB"
+if ((kib > max_gb * 1024 * 1024)); then
+  log "package caches exceed ${max_gb} GiB; clearing"
+  chmod -R u+w "$HOME/go/pkg/mod" 2>/dev/null # go module cache is read-only
+  rm -rf -- "${caches[@]}"
+fi
